@@ -1,26 +1,48 @@
-# desileetcode
+Sure! Here's your structured documentation in `README.md` format, ready to copy-paste:
 
-# Prisma Singleton Pattern for Node.js Applications
+````markdown
+# 🧠 DesiLeetCode
 
-This repository (or code snippet) demonstrates a robust pattern for managing a single instance of `PrismaClient` in a Node.js application. This approach is crucial for preventing common issues like excessive database connections, especially during development with features like hot-reloading.
+A Node.js codebase showcasing best practices for Prisma ORM usage and JWT-based authentication middleware.
 
-## The Problem: Multiple PrismaClient Instances
+---
 
-Without careful management, your Node.js application, particularly in a development environment that might use hot-reloading or re-evaluate modules multiple times, can inadvertently create numerous `PrismaClient` instances. Each `PrismaClient` instance maintains its own connection pool to your database. Creating too many can lead to:
+## 📌 Overview
 
-- **Resource Exhaustion:** Quickly hitting your database's connection limits.
-- **Performance Degradation:** Overheads from establishing and managing many connections.
-- **Unexpected Behavior:** Inconsistent state or errors due to multiple clients interacting with the database.
+This repository demonstrates:
 
-## The Solution: Global Singleton Pattern
+- ✅ **Singleton Pattern for PrismaClient** – to prevent connection overload during development (e.g., hot reloading).
+- 🔐 **JWT Authentication Middleware** – to secure routes and validate user sessions with a robust flow.
 
-The provided code implements a singleton pattern using the Node.js global object (`globalThis`) to ensure that only a single `PrismaClient` instance is created and reused throughout the application's lifecycle.
+---
 
-## The Code Explained
+## 📦 Tech Stack
 
-Let's break down the code snippet:
+- **Node.js**
+- **Express.js**
+- **Prisma ORM**
+- **JWT (`jsonwebtoken`)**
+- **Cookie-based Auth**
 
-```javascript
+---
+
+## 🧩 Problem: Multiple PrismaClient Instances
+
+During development, hot-reloading or module re-evaluation may lead to **multiple `PrismaClient` instances**, which results in:
+
+- 🧨 **Database Connection Exhaustion**
+- 🐢 **Performance Issues**
+- 🧟 **Unpredictable State**
+
+---
+
+## ✅ Solution: Prisma Singleton Pattern
+
+Using the `globalThis` object to maintain a single shared `PrismaClient` instance across reloads.
+
+### 📄 Code: `libs/db.js`
+
+```js
 import { PrismaClient } from "../generated/prisma/index.js";
 
 const globalForPrisma = globalThis;
@@ -31,82 +53,43 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = db;
 }
 ```
+````
 
-authMiddleware Function Breakdown
-Purpose: To verify the authenticity of a user based on a JWT, and to make the authenticated user's data available for subsequent request handlers.
+🔁 **Key Idea:** Reuse the Prisma client in development by storing it on the global object to avoid re-instantiation.
 
-Location: This middleware would typically be applied to routes that require user authentication (e.g., creating a post, accessing a user profile, updating data).
+---
 
-1. Imports and Function Definition
-   JavaScript
+## 🔐 Authentication Middleware
 
-import jwt from "jsonwebtoken"; // Library for handling JSON Web Tokens
-import { db } from "../libs/db.js"; // Our Prisma Client instance for database interaction
+### 🧠 Purpose
+
+To protect authenticated routes by validating JWTs from cookies and attaching the corresponding user to `req.user`.
+
+### 📄 Code: `middlewares/authMiddleware.js`
+
+```js
+import jwt from "jsonwebtoken";
+import { db } from "../libs/db.js";
 
 export const authMiddleware = async (req, res, next) => {
-// `req`: The request object
-// `res`: The response object
-// `next`: A function to pass control to the next middleware/route handler
-// `async`: Indicates this function performs asynchronous operations (like database queries)
-import jwt from "jsonwebtoken";: Imports the jsonwebtoken library, which provides methods for signing, verifying, and decoding JWTs.
-import { db } from "../libs/db.js";: Imports our single PrismaClient instance (named db as per our previous setup). This db object is how our application will interact with the database.
-export const authMiddleware = async (req, res, next) => { ... };: Defines an asynchronous function named authMiddleware.
-As an Express.js middleware, it takes three arguments: req (request), res (response), and next (a function to call the next middleware).
-The async keyword is used because it will perform asynchronous operations, primarily database lookups and jwt.verify (though jwt.verify itself can be synchronous unless async options are used, it's good practice to mark middlewares as async if they contain await). 2. Error Handling (Outer try...catch)
-JavaScript
-
-try {
-// ... main logic ...
-} catch (error) {
-console.error("Error authenticating user:", error); // Log the full error for debugging
-res.status(500).json({ message: "Error auththenticating user" }); // Send a generic error response to the client
-}
-The entire middleware logic is wrapped in a try...catch block.
-Purpose: To gracefully handle any unexpected errors that might occur during the authentication process (e.g., database connection issues, unexpected data formats).
-If an error occurs, it's logged to the console (for developer debugging) and a generic 500 Internal Server Error response is sent back to the client, preventing the server from crashing and avoiding exposing sensitive error details. 3. Extracting the JWT from Cookies
-JavaScript
-
+  try {
     const token = req.cookies.jwt;
 
-req.cookies.jwt: This line attempts to retrieve the JWT from the incoming request's cookies.
-Prerequisite: For req.cookies to be available, you must have a cookie-parsing middleware installed and used in your Express app (e.g., cookie-parser). If not, req.cookies will be undefined, and this line will also result in token being undefined.
-const token: The extracted token string (or undefined if not found) is stored in this variable. 4. Checking for Token Presence
-JavaScript
-
     if (!token) {
-      return res.status(401).json({
-        message: "Unauthorised - No token provided",
-      });
+      return res
+        .status(401)
+        .json({ message: "Unauthorised - No token provided" });
     }
-
-if (!token): Checks if the token variable is falsy (i.e., null, undefined, or an empty string).
-return res.status(401).json(...): If no token is found, the middleware immediately sends a 401 Unauthorized HTTP status code along with a JSON error message.
-return: The return keyword is crucial here. It stops the execution of the middleware immediately, preventing next() or any further processing. 5. Verifying the JWT
-JavaScript
 
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (error) {
-      return res.status(401).json({
-        message: "Unauthorised - Invalid Token",
-      });
+      return res.status(401).json({ message: "Unauthorised - Invalid Token" });
     }
 
-let decoded;: Declares a variable decoded to hold the payload of the JWT if verification is successful.
-try...catch (Inner): This nested try...catch specifically handles errors that might occur during the jwt.verify process.
-jwt.verify(token, process.env.JWT_SECRET): This is the core JWT verification step.
-token: The JWT string extracted from the cookie.
-process.env.JWT_SECRET: The secret key that was used to sign the JWT when it was originally created (during user login/registration). This secret must be the exact same for verification to succeed. It's retrieved from environment variables (requires dotenv configured).
-catch (error): If jwt.verify fails (e.g., the token is expired, tampered with, or the secret doesn't match), it throws an error. This catch block intercepts that error.
-return res.status(401).json(...): If verification fails, a 401 Unauthorized status is sent with an "Invalid Token" message. Again, return stops execution.
-decoded payload: If jwt.verify succeeds, decoded will contain the original payload that was embedded in the JWT (e.g., { id: 'user_id_123', email: 'user@example.com' }). 6. Fetching User Data from the Database
-JavaScript
-
     const user = await db.user.findUnique({
-      where: {
-        id: decoded.id, // Use the user ID from the decoded JWT payload
-      },
+      where: { id: decoded.id },
       select: {
         id: true,
         image: true,
@@ -116,42 +99,97 @@ JavaScript
       },
     });
 
-await db.user.findUnique(...): This line uses Prisma (db instance) to query the database for a user.
-db.user: Accesses the user model defined in your schema.prisma.
-findUnique: A Prisma method to find a single record based on a unique field.
-where: { id: decoded.id }: Specifies the lookup condition. It uses the id extracted from the decoded JWT payload to find the corresponding user in the database.
-select: { ... }: This is a Prisma feature for projection. It specifies which fields of the user object should be retrieved from the database. This is a good security practice to avoid fetching sensitive data (like the hashed password) unnecessarily. 7. Checking for User Existence
-JavaScript
-
     if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
+      return res.status(404).json({ message: "User not found" });
     }
 
-if (!user): Checks if the database query returned no user (i.e., user is null). This could happen if a user was deleted after their token was issued, or if a tampered token contained a non-existent id.
-return res.status(404).json(...): If no user is found in the database corresponding to the token's ID, a 404 Not Found status is returned with an appropriate message. While technically a "user not found," returning 401 Unauthorized in some cases (e.g., invalid ID from token) might be preferred for security to avoid leaking information about existing/non-existing IDs. 404 indicates the resource (user) doesn't exist, which is accurate here. 8. Attaching User Data to the Request and Passing Control
-JavaScript
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error("Error authenticating user:", error);
+    res.status(500).json({ message: "Error authenticating user" });
+  }
+};
+```
 
-    req.user = user; // Attach the fetched user object to the request
-    next(); // Pass control to the next middleware or the route handler
+---
 
-req.user = user;: This is a common and powerful pattern in Express.js middleware. The user object (containing id, image, name, email, role) fetched from the database is attached as a property named user to the req (request) object.
-Purpose: This makes the authenticated user's data readily available to any subsequent middleware or the final route handler that receives this request, without needing to re-fetch it from the database.
-next();: This is a critical call. It signals to Express that this middleware has completed its work and that processing should continue to the next middleware in the stack or, if this is the last middleware, to the final route handler for the requested endpoint. If next() is not called, the request will hang.
-Flow Summary:
-Request arrives.
-Middleware starts: Outer try block.
-Token extraction: Tries to get JWT from req.cookies.jwt.
-Token check: If no token, sends 401 and stops.
-Token verification:
-Inner try block.
-jwt.verify uses token and JWT_SECRET.
-If invalid/expired, inner catch activates, sends 401 and stops.
-If valid, decoded payload is available.
-Database lookup: Uses decoded.id to find user in db.user table, selecting specific fields.
-User check: If user not found, sends 404 and stops.
-Success:
-user object is attached to req.user.
-next() is called, allowing the request to proceed to the intended route handler (e.g., a function that fetches posts, knowing the user is authenticated and their id is available via req.user.id).
-Unexpected errors: Outer catch handles any other unhandled errors, logs them, and sends 500.
+## 🧭 Middleware Flow
+
+1. 🔍 **Extract JWT** from `req.cookies.jwt`
+2. ❌ If missing → `401 Unauthorized`
+3. ✅ **Verify Token** using `jwt.verify(token, secret)`
+4. ❌ If invalid/expired → `401 Unauthorized`
+5. 🔄 **Fetch User** from DB using `decoded.id`
+6. ❌ If not found → `404 Not Found`
+7. 📎 **Attach user** to `req.user`
+8. 🔁 **Call `next()`** to proceed to the route handler
+
+---
+
+## ✅ Requirements
+
+- `cookie-parser` middleware enabled in your Express app.
+- `.env` file with `JWT_SECRET` defined.
+
+---
+
+## 🧪 Example Usage
+
+### Protecting a Route
+
+```js
+import express from "express";
+import { authMiddleware } from "./middlewares/authMiddleware.js";
+
+const router = express.Router();
+
+router.get("/profile", authMiddleware, (req, res) => {
+  res.json({ message: "Welcome", user: req.user });
+});
+```
+
+---
+
+## 🛠 Setup
+
+```bash
+npm install
+npm install prisma --save-dev
+npx prisma generate
+```
+
+---
+
+## 📁 Project Structure
+
+```
+📦 desileetcode
+├── 📁 libs
+│   └── db.js            # Prisma singleton instance
+├── 📁 middlewares
+│   └── authMiddleware.js
+├── 📁 generated
+│   └── prisma           # Prisma-generated client
+├── .env
+└── app.js / index.js    # Entry point
+```
+
+---
+
+## 💡 Tips
+
+- Avoid storing sensitive fields (e.g., password hashes) in JWT payloads.
+- Always use `select` in Prisma queries to minimize data exposure.
+- For production, consider secure cookie settings (`httpOnly`, `secure`, etc.).
+
+---
+
+## 🧾 License
+
+MIT License © 2025 \[DesiLeetCode Team]
+
+```
+
+Let me know if you want this as a downloadable file or with GitHub badge integration.
+```
